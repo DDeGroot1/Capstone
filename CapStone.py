@@ -4,16 +4,10 @@
 # In[1]:
 
 
-pip install -U scikit-learn statsmodels Kaggle opencv-python tensorflow sklearn.ensemble
+pip install -U scikit-learn statsmodels Kaggle opencv-python tensorflow sklearn.ensemble sklearn.utils
 
 
 # In[2]:
-
-
-pip install sklearn.utils
-
-
-# In[3]:
 
 
 import numpy as np
@@ -25,31 +19,32 @@ import os
 import cv2
 import random
 import pickle
+from pickle import dump
 from statsmodels.tools import categorical
 from skimage.filters import prewitt_h,prewitt_v
 from sklearn.neighbors import KNeighborsClassifier
 from keras.models import load_model
-#import kaggle
-#from kaggle.api.kaggle_api_extended import KaggleApi
+
 import zipfile
 from PIL import Image
-from sklearn.metrics import plot_confusion_matrix, multilabel_confusion_matrix, roc_auc_score
-from sklearn.svm import LinearSVC
-#from sklearn.ensemble import RandomForestClassifier
-#from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import plot_confusion_matrix, multilabel_confusion_matrix, roc_auc_score,accuracy_score
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier
 
+import joblib
 import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense, Dropout, Activation, Flatten, Conv2D, MaxPooling2D
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import train_test_split
+import time
+
 
 FishCategories = ["Black Sea Sprat", "Gilt-Head Bream", "Hourse Mackerel", "Red Mullet", "Red Sea Bream", "Sea Bass", "Shrimp","Striped Red Mullet", "Trout"]
 
 
-# In[4]:
+# In[3]:
 
 
 #{"username":"dashdg7","key":"8d15678f2d374d39b3fd6764ec02ec4d"}
@@ -112,6 +107,14 @@ def Resize(image_,w,h):
 def Shuffle(array):
     return random.shuffle(array)
 
+# Gets a random sampling
+def RandomSample(SampleAmount):
+    ListRange = range(9000)
+    Sample = []
+    for i in range(SampleAmount):
+        Sample.append(random.choice(ListRange))
+    return Sample
+
 # Gets the average color value of an image of a given color
 def GetColorAverage(ColorNumber):
     col = []
@@ -156,6 +159,7 @@ def BuildCNN(ResizeH, ResizeW, BatchSize, Epochs, X, Y,ArrayDepth):
     #TRAIN TEST SPLIT
     X_train, X_test, y_train, y_test = train_test_split(ResizedImages, Y_VALUE_CAT, test_size=0.33, random_state=42)
     y_test_array = argmax(np.array(y_test), axis=-1).astype('int')
+    y_train_array = argmax(np.array(y_train), axis=-1).astype('int')
     
     #CONSTRUCT LAYERS MODEL
     model = Sequential()
@@ -176,10 +180,104 @@ def BuildCNN(ResizeH, ResizeW, BatchSize, Epochs, X, Y,ArrayDepth):
     #TRAIN MODEL
     model.fit(X_train, y_train, batch_size = BatchSize, epochs = Epochs)
     
-    return model, X_test, y_test_array
+    return model, X_test, y_test_array, X_train, y_train_array
+
+
+#Applies a filtering across the image to remove black and blue color pixels
+def ColorFilters(fishImage):
+    RedF = (fishImage[:,:,0] > 100)
+    InvBlueF = (fishImage[:,:,2] < 115)
+    WhiteF = ((fishImage[:,:,0] > 180) & (fishImage[:,:,1] > 180) & (fishImage[:,:,2] > 130))
+    BlackF = ((fishImage[:,:,0] < 25) & (fishImage[:,:,1] < 25) & (fishImage[:,:,2] < 25))
+    GrayF = (fishImage[:,:,0] < 140) & (fishImage[:,:,1] < 140) & (fishImage[:,:,2] < 140) & (fishImage[:,:,0] > 100) & (fishImage[:,:,1] > 100) & (fishImage[:,:,2] > 100)
+    DGrayF = (fishImage[:,:,0] < 100) & (fishImage[:,:,1] < 100) & (fishImage[:,:,2] < 100) & (fishImage[:,:,0] > 80) & (fishImage[:,:,1] > 80) & (fishImage[:,:,2] > 80)
+    Filter = (RedF*InvBlueF) + (GrayF + DGrayF + WhiteF + BlackF)
+
+    FilteredImage = fishImage.copy()
+    FilteredImage[:, :, 0] = FilteredImage[:, :, 0] * Filter
+    FilteredImage[:, :, 1] = FilteredImage[:, :, 1] * Filter
+    FilteredImage[:, :, 2] = FilteredImage[:, :, 2] * Filter
+    return FilteredImage
+
+#Using the colors below each pixel in every image is classified as one of those colors. From there
+#the pixels that are black and blue  are removed from the image and the rest of the colors are 
+#counted and totaled so they can be used in the KNN, SVM, and RF
+def ClassifyPixelColor(Image):
+    Red = [200,75,75]
+    Orange = [200,125,75]
+    Brown = [151,122,83]
+    Tan = [217,171,118] 
+    Blue = [75,75,200]
+    LightBlue = [165,165,165]
+    #DGray = [80,80,80]
+    Gray = [125,125,125]
+    White = [235,235,235]
+    Black = [20,20,20]
+    
+    NewImage = np.empty((Image.shape))
+    PixelColorValues = [Red,Orange,Brown,Tan,Blue,LightBlue,Gray,White,Black]
+    PixelColorList = ["Red","Orange","Brown","Tan","Blue","LightBlue","Gray","White","Black"]
+    row,column,depth = Image.shape
+    Reds = 0
+    Oranges = 0
+    Browns = 0
+    Tans = 0
+    Blues = 0
+    LightBlues = 0
+    DGrays = 0
+    Grays = 0
+    Whites = 0
+    Blacks = 0    
+    for r in range(row):
+        for c in range(column):
+            Difference = 0
+            for Cl in range(len(PixelColorList)):
+                RedDif = abs(Image[r][c][0] - PixelColorValues[Cl][0])
+                GreenDif = abs(Image[r][c][1] - PixelColorValues[Cl][1])
+                BlueDif = abs(Image[r][c][2] - PixelColorValues[Cl][2])
+                TempDifference = (RedDif + GreenDif + BlueDif)
+                if Difference == 0:
+                    CurrentClassification = PixelColorList[Cl]
+                    Difference = TempDifference
+                elif Difference > TempDifference:
+                    CurrentClassification = PixelColorList[Cl]
+                    Difference = TempDifference
+            if CurrentClassification == "Red":
+                Reds = Reds + 1
+                PixelValue = Red
+            elif CurrentClassification == "Orange":
+                Oranges = Oranges + 1
+                PixelValue = Orange
+            elif CurrentClassification == "Brown":
+                Browns = Browns + 1
+                PixelValue = Brown
+            elif CurrentClassification == "Tan":
+                Tans = Tans + 1
+                PixelValue = Tan
+            elif CurrentClassification == "Blue":
+                Blues = Blues + 1
+                PixelValue = Black
+            elif CurrentClassification == "LightBlue":
+                LightBlues = LightBlues + 1
+                PixelValue = Black
+            elif CurrentClassification == "DGray":
+                DGrays = DGrays + 1
+                PixelValue = Black
+            elif CurrentClassification == "Gray":
+                Grays = Grays + 1
+                PixelValue = Black
+            elif CurrentClassification == "White":
+                Whites = Whites + 1
+                PixelValue = White
+            elif CurrentClassification == "Black":
+                Blacks = Blacks + 1
+                PixelValue = Black
+            NewImage[r][c] = PixelValue
+    return NewImage,[Reds, Oranges, Browns, Tans,Blues,LightBlues, Grays,Whites, Blacks]
+
 
 # builds a multiclass confusion matrix
-def ConfusionMatrix(yt, yh): 
+def ConfusionMatrix(yt, yh,FileName): 
     CM = np.zeros((len(FishCategories), len(FishCategories)))
     for i in range(len(yt)):
         AP = yt[i]
@@ -194,10 +292,12 @@ def ConfusionMatrix(yt, yh):
                 xticklabels=FishCategories, 
                 yticklabels=FishCategories)
     s.set(xlabel='Predicted', ylabel='Actual')
+    results_path = str(FileName)
+    plt.savefig(results_path)
     return plt.show()
 
 
-# In[5]:
+# In[4]:
 
 
 if os.path.exists(os.path.join(os.getcwd (),'archive.zip')):
@@ -207,15 +307,35 @@ else:
 ColorImages, ImageLabels, GrayImage, FishPosition = GetData() 
 
 
+# In[5]:
+
+
+TimeToTrain = []
+start = time.time()
+CNNFitted,CNNX_test, CNNY_test_label,CNNX_train,CNNY_train_label = BuildCNN(125,125,30,10,ColorImages,ImageLabels,3)
+end = time.time()
+TimeToTrain.append(["CNN","Preprocessing and Training",end - start])
+SaveFile(CNNFitted,'CNNModel.h5')
+
+
 # In[6]:
 
 
-CNNFitted,CNNX_test, CNNY_test_label = BuildCNN(25,25,30,10,ColorImages,ImageLabels,3)
-SaveFile(CNNFitted,'CNNModel.h5')
 CNNFitted = OpenFile('CNNModel.h5')
+start = time.time()
 PredictedPercent = CNNFitted.predict(CNNX_test)
+end = time.time()
+TimeToTrain.append(["CNN","Predicting",end - start])
 CNNyhat = argmax(PredictedPercent, axis=-1).astype('int')
-ConfusionMatrix(CNNY_test_label, CNNyhat)
+print("CNN")
+
+PredictedPercentTrain = CNNFitted.predict(CNNX_train)
+CNNyhatTrain = argmax(PredictedPercentTrain, axis=-1).astype('int')
+
+CNNTTrainingAccuracy = accuracy_score(CNNyhatTrain,CNNY_train_label)
+CNNTTestingAccuracy = accuracy_score(CNNyhat,CNNY_test_label)
+print(accuracy_score(CNNyhat,CNNY_test_label))
+ConfusionMatrix(CNNY_test_label, CNNyhat,"ConfusionMatrix_CNN.png")
 
 
 # In[7]:
@@ -234,7 +354,168 @@ plt.title('Actual Label - '+str(FishCategories[np.array(IncorrectlyLabeled)[fish
 plt.show()
 
 
-# In[8]:
+# In[9]:
+
+
+c = 0
+PixelColorCounts = []
+StartPreProcessing = time.time()
+for img in ColorImages:
+    if c %500 ==0:
+        print(c)
+    c=c+1
+    NewImage,Counts = ClassifyPixelColor(Resize(img,30,30))
+    PixelColorCounts.append(Counts)
+    NewImage = NewImage.astype(int)
+PixelColorCounts_Df = pd.DataFrame(PixelColorCounts)
+PixelColorCounts_Df.columns = ["Reds", "Oranges", "Browns", "Tans", "Blues", "LightBlues", "Grays", "Whites", "Blacks"]
+XColorCounts = PixelColorCounts_Df[["Reds", "Oranges", "Browns", "Tans", "Grays","Whites"]]
+EndPreProcessing = time.time()
+
+
+# In[10]:
+
+
+n = 0
+index = []
+for j in range(9):
+    for i in range(1000):
+         index.append(n)
+    n = n+1
+ColorDim = [index]
+#ColorDimDt = pd.DataFrame(columns = ('FishPosition'))
+ColorDimDt = pd.DataFrame(np.transpose(ColorDim))
+
+#X_train, X_test, y_train, y_test = train_test_split(ColorDimDt.loc[:, ColorDimDt.columns!=0], ColorDimDt[0], test_size=0.33, random_state=42)
+X_train, X_test, y_train, y_test = train_test_split(XColorCounts[["Reds", "Oranges", "Browns", "Tans", "Grays","Whites"]][0:9000], ColorDimDt[0], test_size=0.33, random_state=42)
+
+y_test = np.array(y_test).astype('int')
+
+StartTrainingKNN = time.time()
+#Create a Gaussian Classifier
+clf=RandomForestClassifier(n_estimators=100)
+KNN = KNeighborsClassifier(n_neighbors=3)
+KNNFitted = KNN.fit(X_train, y_train)
+EndTrainingKNN = time.time()
+TimeToTrain.append(["KNN","Preprocessing and Training",(EndPreProcessing - StartPreProcessing)+ (EndTrainingKNN-StartTrainingKNN)])
+joblib.dump(KNNFitted, "KNNModel.joblib")
+print("KNN")
+knnTrainingAccuracy = KNNFitted.score(X_train,y_train)
+KnnTestedAccuracy = KNNFitted.score(X_test,y_test)
+print(KNNFitted.score(X_test,y_test))
+
+start = time.time()
+KNNYhat = np.array(KNNFitted.predict(X_test)).astype('int')
+end = time.time()
+TimeToTrain.append(["KNN","Predicting",(end - start)])
+KNNCM = ConfusionMatrix(y_test, KNNYhat,"ConfusionMatrix_KNN.png")
+KNNCM
+
+#X, y = make_classification(n_features=3, random_state=0)
+SVM = SVC(random_state=0, tol=1e-5,decision_function_shape='ovr')
+StartTrainingSVM = time.time()
+SVMFitted = SVM.fit(X_train, y_train)
+EndTrainingSVM = time.time()
+TimeToTrain.append(["SVM","Preprocessing and Training",(EndPreProcessing - StartPreProcessing)+ (EndTrainingSVM-StartTrainingSVM)])
+joblib.dump(SVMFitted, "SVMModel.joblib")
+print("SVM")
+SVMTrainingAccuracy = SVMFitted.score(X_train,y_train)
+SVMTestedAccuracy = SVMFitted.score(X_test,y_test)
+print(SVMFitted.score(X_test,y_test))
+
+start = time.time()
+SVMYhat = np.array(SVMFitted.predict(X_test)).astype('int')
+end = time.time()
+TimeToTrain.append(["SVM","Predicting",(end - start)])
+SVMCM = ConfusionMatrix(y_test, SVMYhat,"ConfusionMatrix_SVM.png")
+SVMCM
+
+
+RF = RandomForestClassifier(n_estimators=100)
+StartTrainingRF = time.time()
+RFFitted = RF.fit(X_train, y_train)
+EndTrainingRF = time.time()
+TimeToTrain.append(["RF","Preprocessing and Training",(EndPreProcessing - StartPreProcessing)+ (EndTrainingRF-StartTrainingRF)])
+joblib.dump(RFFitted, "RFModel.joblib")
+print("Random Forest")
+RFTrainingAccuracy = RFFitted.score(X_train,y_train)
+RFTestedAccuracy = RFFitted.score(X_test,y_test)
+print(RFFitted.score(X_test,y_test))
+
+start = time.time()
+RFYhat = np.array(RFFitted.predict(X_test)).astype('int')
+end = time.time()
+TimeToTrain.append(["RF","Predicting",(end - start)])
+RFCM = ConfusionMatrix(y_test, RFYhat,"ConfusionMatrix_RF.png")
+RFCM
+
+
+# In[11]:
+
+
+TimeDataFrame = pd.DataFrame(np.array(TimeToTrain))
+TimeDataFrame.columns = ["Model","TimeType","Time (Seconds)"]
+TimeDataFrame
+Predicting = TimeDataFrame[TimeDataFrame["TimeType"]=='Predicting']["Time (Seconds)"]
+Training = TimeDataFrame[TimeDataFrame["TimeType"]=='Preprocessing and Training']["Time (Seconds)"]
+TrainingAccuracy = [CNNTTrainingAccuracy, knnTrainingAccuracy, SVMTrainingAccuracy, RFTrainingAccuracy]
+TestingAccuracy = [CNNTTestingAccuracy, KnnTestedAccuracy, SVMTestedAccuracy, RFTestedAccuracy]
+TimeDataFrameClean = pd.DataFrame(np.transpose(np.array([['CNN',"KNN","SVM","RF"],TrainingAccuracy, TestingAccuracy, Training,Predicting])))
+TimeDataFrameClean.columns = ["Model","Training Accuracy","Testing Accuracy","Preprocessing and Training (Sec)", "Predicting 2,970 Images (Sec)"]
+TimeDataFrameClean
+
+
+# In[12]:
+
+
+fishlist = [234,1948,2034,3203,4093,5932,6905,7002,8094]
+PixelColorCounts = []
+for i in fishlist:
+    img = Resize(ColorImages[i],125,125)
+    NewImage,Counts = ClassifyPixelColor((img))
+    PixelColorCounts.append(Counts)
+    NewImage = NewImage.astype(int)
+    f, axarr = plt.subplots(1,3)
+    axarr[0].imshow(img)
+    axarr[1].imshow(ColorFilters(img))
+    axarr[2].imshow(NewImage)        
+
+
+# In[13]:
+
+
+# Data Exploration
+n = 0
+Colors = ['blue','orange','green','red','purple','brown','pink','gray','olive']
+index = []
+for j in range(9):
+    for i in range(1000):
+         index.append(n)
+    n = n+1
+ColorDim = [index,GetColorAverage(0),GetColorAverage(1),GetColorAverage(2), GetColorQ(0,25), GetColorQ(1,25), GetColorQ(2,25),GetColorQ(0,25), GetColorQ(1,25), GetColorQ(2,25)]
+ColorDimDt = pd.DataFrame(columns = ('FishPosition','RedAvg','GreenAvg','BlueAvg','Red25Q','Green25Q','Blue25Q','Red75Q','Green75Q','Blue75Q'))
+ColorDimDt = pd.DataFrame(np.transpose(ColorDim))
+
+
+plt.scatter(ColorDimDt[1],ColorDimDt[2],c = ColorDimDt[0])
+plt.xlabel("red")
+plt.ylabel("green")
+plt.title("Average Pixel Value")
+plt.show()
+
+plt.scatter(ColorDimDt[4],ColorDimDt[5],c = ColorDimDt[0])
+plt.xlabel("red")
+plt.ylabel("green")
+plt.title("75Th Quartile Pixel Value")
+plt.show()
+
+for i in range(9):
+    plt.hist(ColorDimDt[ColorDimDt[0]==i][1],color = Colors[i],alpha = .75)
+    plt.title("Average Red Pixel Value Distribution")
+plt.show()
+
+
+# In[14]:
 
 
 resize = 175
@@ -310,68 +591,22 @@ edges = cv2.Canny(Resized,100,200)
 plt.imshow(edges, cmap = 'gray')
 
 
-# In[9]:
+# In[37]:
 
 
-n = 0
-Colors = ['blue','orange','green','red','purple','brown','pink','gray','olive']
-index = []
-for j in range(9):
-    for i in range(1000):
-         index.append(n)
-    n = n+1
-ColorDim = [index,GetColorAverage(0),GetColorAverage(1),GetColorAverage(2), GetColorQ(0,25), GetColorQ(1,25), GetColorQ(2,25),GetColorQ(0,25), GetColorQ(1,25), GetColorQ(2,25)]
-#ColorDimDt = pd.DateFrame(columns = ('FishPosition','RedAvg','GreenAvg','BlueAvg','Red25Q','Green25Q','Blue25Q','Red75Q','Green75Q','Blue75Q'))
-ColorDimDt = pd.DataFrame(np.transpose(ColorDim))
-
-
-# In[10]:
-
-
-X_train, X_test, y_train, y_test = train_test_split(ColorDimDt.loc[:, ColorDimDt.columns!=0], ColorDimDt[0], test_size=0.33, random_state=42)
-y_test = np.array(y_test).astype('int')
-
-KNN = KNeighborsClassifier(n_neighbors=17)
-KNNFitted = KNN.fit(X_train, y_train)
-KNNFitted.score(X_test,y_test)
-
-KNNYhat = np.array(KNNFitted.predict(X_test)).astype('int')
-KNNCM = ConfusionMatrix(y_test, KNNYhat)
-KNNCM
-
-#X, y = make_classification(n_features=3, random_state=0)
-SVM = LinearSVC(random_state=0, tol=1e-5)
-SVMFitted = SVM.fit(X_train, y_train)
-SVMFitted.score(X_test,y_test)
-SVMYhat = np.array(SVMFitted.predict(X_test)).astype('int')
-SVMCM = ConfusionMatrix(y_test, SVMYhat)
-SVMCM
-
-
-# In[11]:
-
-
-
-plt.scatter(ColorDimDt[1],ColorDimDt[2],c = ColorDimDt[0])
-plt.xlabel("red")
-plt.ylabel("green")
-plt.title("Average Pixel Value")
-plt.show()
-
-plt.scatter(ColorDimDt[4],ColorDimDt[5],c = ColorDimDt[0])
-plt.xlabel("red")
-plt.ylabel("green")
-plt.title("75Th Quartile Pixel Value")
-plt.show()
-
-
-# In[12]:
-
-
-for i in range(9):
-    plt.hist(ColorDimDt[ColorDimDt[0]==i][1],color = Colors[i],alpha = .75)
-    plt.title("Average Red Pixel Value Distribution")
-plt.show()
+PixelColorCounts = []
+for i in range(10):
+    c = IncorrectRF.index[i]
+    img = Resize(ColorImages[c],125,125)
+    NewImage,Counts = ClassifyPixelColor((img))
+    PixelColorCounts.append(Counts)
+    print("FishNumber:" + str(c))
+    NewImage = NewImage.astype(int)
+    f, axarr = plt.subplots(1,3)
+    axarr[0].imshow(img)
+    axarr[1].imshow(ColorFilters(img))
+    axarr[2].imshow(NewImage) 
+    plt.show()
 
 
 # In[ ]:
