@@ -4,7 +4,7 @@
 # In[1]:
 
 
-pip install -U scikit-learn statsmodels Kaggle opencv-python tensorflow sklearn.ensemble sklearn.utils
+pip install numpy pandas matplotlib seaborn opencv-python random2 statsmodels scikit-image scikit-learn keras-models zipfile36 Pillow joblib tensorflow keras
 
 
 # In[2]:
@@ -18,8 +18,8 @@ import seaborn as sns
 import os
 import cv2
 import random
-import pickle
-from pickle import dump
+#import pickle
+#from pickle import dump
 from statsmodels.tools import categorical
 from skimage.filters import prewitt_h,prewitt_v
 from sklearn.neighbors import KNeighborsClassifier
@@ -312,7 +312,7 @@ ColorImages, ImageLabels, GrayImage, FishPosition = GetData()
 
 TimeToTrain = []
 start = time.time()
-CNNFitted,CNNX_test, CNNY_test_label,CNNX_train,CNNY_train_label = BuildCNN(125,125,30,10,ColorImages,ImageLabels,3)
+CNNFitted,CNNX_test, CNNY_test_label,CNNX_train,CNNY_train_label = BuildCNN(75,75,30,10,ColorImages,ImageLabels,3)
 end = time.time()
 TimeToTrain.append(["CNN","Preprocessing and Training",end - start])
 SaveFile(CNNFitted,'CNNModel.h5')
@@ -354,7 +354,7 @@ plt.title('Actual Label - '+str(FishCategories[np.array(IncorrectlyLabeled)[fish
 plt.show()
 
 
-# In[9]:
+# In[8]:
 
 
 c = 0
@@ -373,7 +373,7 @@ XColorCounts = PixelColorCounts_Df[["Reds", "Oranges", "Browns", "Tans", "Grays"
 EndPreProcessing = time.time()
 
 
-# In[10]:
+# In[9]:
 
 
 n = 0
@@ -450,7 +450,7 @@ RFCM = ConfusionMatrix(y_test, RFYhat,"ConfusionMatrix_RF.png")
 RFCM
 
 
-# In[11]:
+# In[10]:
 
 
 TimeDataFrame = pd.DataFrame(np.array(TimeToTrain))
@@ -465,7 +465,7 @@ TimeDataFrameClean.columns = ["Model","Training Accuracy","Testing Accuracy","Pr
 TimeDataFrameClean
 
 
-# In[12]:
+# In[11]:
 
 
 fishlist = [234,1948,2034,3203,4093,5932,6905,7002,8094]
@@ -481,7 +481,7 @@ for i in fishlist:
     axarr[2].imshow(NewImage)        
 
 
-# In[13]:
+# In[12]:
 
 
 # Data Exploration
@@ -515,7 +515,7 @@ for i in range(9):
 plt.show()
 
 
-# In[14]:
+# In[13]:
 
 
 resize = 175
@@ -591,22 +591,22 @@ edges = cv2.Canny(Resized,100,200)
 plt.imshow(edges, cmap = 'gray')
 
 
-# In[37]:
+# In[15]:
 
 
-PixelColorCounts = []
-for i in range(10):
-    c = IncorrectRF.index[i]
-    img = Resize(ColorImages[c],125,125)
-    NewImage,Counts = ClassifyPixelColor((img))
-    PixelColorCounts.append(Counts)
-    print("FishNumber:" + str(c))
-    NewImage = NewImage.astype(int)
-    f, axarr = plt.subplots(1,3)
-    axarr[0].imshow(img)
-    axarr[1].imshow(ColorFilters(img))
-    axarr[2].imshow(NewImage) 
-    plt.show()
+#PixelColorCounts = []
+#for i in range(10):
+ #   c = IncorrectRF.index[i]
+  #  img = Resize(ColorImages[c],125,125)
+   # NewImage,Counts = ClassifyPixelColor((img))
+    #PixelColorCounts.append(Counts)
+    #print("FishNumber:" + str(c))
+    #NewImage = NewImage.astype(int)
+    #f, axarr = plt.subplots(1,3)
+    #axarr[0].imshow(img)
+    #axarr[1].imshow(ColorFilters(img))
+    #axarr[2].imshow(NewImage) 
+    #plt.show()
 
 
 # In[ ]:

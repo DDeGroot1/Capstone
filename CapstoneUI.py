@@ -4,7 +4,7 @@
 # In[1]:
 
 
-pip install tk Pillow pandas
+pip install tk Pillow pandas python-math opencv-python random2 joblib keras-models Pillow zipfile36 pathlib2 matplotlib
 
 
 # In[2]:
@@ -18,7 +18,6 @@ import os
 import math
 import cv2
 import pandas as pd
-import pickle 
 import random
 import joblib
 from keras.models import load_model
@@ -323,7 +322,7 @@ def OpenImageDetails():
                Fish_Image = img_[0]  
                
                #Get Model Labels
-               CNNprediction = load_model('CNNModel.h5').predict(np.array([np.array(cv2.resize(np.array(Fish_Image),dsize = (125,125)))]))
+               CNNprediction = load_model('CNNModel.h5').predict(np.array([np.array(cv2.resize(np.array(Fish_Image),dsize = (75,75)))]))
                CNNyhat = argmax(CNNprediction, axis=-1).astype('int')
                pred = options[CNNyhat[0]]
                ActualLabel.config(text = "Actual Label: "+ str(fishfolder))
@@ -503,7 +502,7 @@ def OpenGuessingGame():
        
    def GetModelResults(img):
        #print(load_model('CNNModel.h5').predict(cv2.resize(img,(50,50))))
-       prediction = load_model('CNNModel.h5').predict(np.array([np.array(cv2.resize(img,dsize = (125,125)))]))
+       prediction = load_model('CNNModel.h5').predict(np.array([np.array(cv2.resize(img,dsize = (75,75)))]))
        CNNyhat = argmax(prediction, axis=-1).astype('int')
        ModelFishPrediction.set(options[CNNyhat[0]])
        
