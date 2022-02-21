@@ -4,7 +4,7 @@
 # In[1]:
 
 
-pip install tk Pillow pandas python-math opencv-python random2 joblib keras-models Pillow zipfile36 pathlib2 matplotlib
+pip install tk Pillow pandas numpy python-math opencv-python random2 joblib keras-models Pillow zipfile36 pathlib2 matplotlib
 
 
 # In[2]:
@@ -14,6 +14,7 @@ from tkinter import *
 import tkinter as tk
 import tkinter.font as font
 from numpy import argmax
+import numpy as np
 import os
 import math
 import cv2
@@ -49,6 +50,8 @@ def CloseAndOpen(Close,Type):
         OpenGuessingGame()
     elif Type == "Main Menu":
         OpenMainMenu()
+    elif Type == "Help":
+        OpenUserGuide()
 
 def Resize(image_,w,h):
     newsize = (w, h)
@@ -70,77 +73,34 @@ def ColorFilters(fishImage):
     return FilteredImage        
         
 def ClassifyPixelColor(Image):
-    Red = [200,75,75]
-    Orange = [200,125,75]
-    Brown = [151,122,83]
-    Tan = [217,171,118] 
-    Blue = [75,75,200]
-    LightBlue = [165,165,165]
-    #DGray = [80,80,80]
-    Gray = [125,125,125]
-    White = [235,235,235]
-    Black = [20,20,20]
-    
-    NewImage = np.empty((Image.shape))
-    PixelColorValues = [Red,Orange,Brown,Tan,Blue,LightBlue,Gray,White,Black]
-    PixelColorList = ["Red","Orange","Brown","Tan","Blue","LightBlue","Gray","White","Black"]
-    row,column,depth = Image.shape
-    Reds = 0
-    Oranges = 0
-    Browns = 0
-    Tans = 0
-    Blues = 0
-    LightBlues = 0
-    DGrays = 0
-    Grays = 0
-    Whites = 0
-    Blacks = 0    
-    for r in range(row):
-        for c in range(column):
-            Difference = 0
-            for Cl in range(len(PixelColorList)):
-                RedDif = abs(Image[r][c][0] - PixelColorValues[Cl][0])
-                GreenDif = abs(Image[r][c][1] - PixelColorValues[Cl][1])
-                BlueDif = abs(Image[r][c][2] - PixelColorValues[Cl][2])
-                TempDifference = (RedDif + GreenDif + BlueDif)
-                if Difference == 0:
-                    CurrentClassification = PixelColorList[Cl]
-                    Difference = TempDifference
-                elif Difference > TempDifference:
-                    CurrentClassification = PixelColorList[Cl]
-                    Difference = TempDifference
-            if CurrentClassification == "Red":
-                Reds = Reds + 1
-                PixelValue = Red
-            elif CurrentClassification == "Orange":
-                Oranges = Oranges + 1
-                PixelValue = Orange
-            elif CurrentClassification == "Brown":
-                Browns = Browns + 1
-                PixelValue = Brown
-            elif CurrentClassification == "Tan":
-                Tans = Tans + 1
-                PixelValue = Tan
-            elif CurrentClassification == "Blue":
-                Blues = Blues + 1
-                PixelValue = Black
-            elif CurrentClassification == "LightBlue":
-                LightBlues = LightBlues + 1
-                PixelValue = Black
-            elif CurrentClassification == "DGray":
-                DGrays = DGrays + 1
-                PixelValue = Black
-            elif CurrentClassification == "Gray":
-                Grays = Grays + 1
-                PixelValue = Black
-            elif CurrentClassification == "White":
-                Whites = Whites + 1
-                PixelValue = White
-            elif CurrentClassification == "Black":
-                Blacks = Blacks + 1
-                PixelValue = Black
-            NewImage[r][c] = PixelValue
-    return NewImage,[Reds, Oranges, Browns, Tans,Blues,LightBlues, Grays,Whites, Blacks]
+    ColorLabels = ['Red','Orange','Brown','Tan','Blue', 'LightBlue','Gray', 'White','Black']
+    ColorValues = [[200,75,75], [200,125,75], [151,122,83], [217,171,118],[75,75,200],[165,165,165],[125,125,125],[235,235,235],[20,20,20]]
+    ColorValuesMap = [[200,75,75], [200,125,75], [151,122,83], [217,171,118],[20,20,20],[20,20,20],[20,20,20],[235,235,235],[20,20,20]]
+    w,h,d = Image.shape 
+    zeros = np.zeros(9, dtype=int)
+    dim = (w,h)
+    totals = []
+    ModifiedImages = []
+    Reshaped = np.reshape(Image,(w*h,3))
+    ColorLabels = np.array(ColorLabels)
+    zeros = np.zeros(9, dtype=int)
+    for p in range(w*h):
+        Dif = np.array(np.sum(abs(Reshaped[p]-ColorValues), axis = 1))
+        Current = 1000
+        Color=''
+        for c in range(len(ColorLabels)):
+            if Dif[c] < Current:
+                Color = ColorValuesMap[c]
+                Current = Dif[c]
+        zeros[ColorValuesMap.index(Color)] = zeros[ColorValuesMap.index(Color)] + 1
+        Reshaped[p] = Color
+    totals.append(zeros)
+    ModifiedImages.append(np.reshape(Reshaped,(h,w,3)))
+    totals = np.array(totals)
+    totals = pd.DataFrame(totals)
+    totals.columns = ["Reds", "Oranges", "Browns", "Tans", "Blues", "LightBlues", "Grays", "Whites", "Blacks"]
+    totals = totals[["Reds", "Oranges", "Browns", "Tans", "Grays","Whites"]]
+    return totals, np.array(ModifiedImages)
 
 
 # In[5]:
@@ -154,7 +114,7 @@ def OpenMainMenu():
     MainWin.geometry(str(Width)+'x'+str(Height))
     #Set the geometry of tkinter frame
 
-    myFont = font.Font(size=20, weight='bold')
+    myFont = font.Font(size=16, weight='bold')
 
     #Create a Label and a Button widget
     Titlelb = tk.Label(MainWin, text="", font=myFont).pack(pady=4)
@@ -186,10 +146,19 @@ def OpenMainMenu():
                       font = myFont,
                       bg='#0052cc', 
                       fg='#ffffff')
+    Helpbtn = tk.Button(MainWin,
+                      text="User's Guide", 
+                      command= lambda:CloseAndOpen(MainWin,"Help"),  
+                      width=15, 
+                      height=2, 
+                      font = myFont,
+                      bg='#0052cc', 
+                      fg='#ffffff')
 
-    MRbtn.place(relx=0.5, rely=0.30, anchor=tk.CENTER)
-    IDbtn.place(relx=0.5, rely=0.52, anchor=tk.CENTER)
-    GGbtn.place(relx=0.5, rely=0.74, anchor=tk.CENTER)
+    MRbtn.place(relx=0.5, rely=0.2, anchor=tk.CENTER)
+    IDbtn.place(relx=0.5, rely=0.4, anchor=tk.CENTER)
+    GGbtn.place(relx=0.5, rely=0.6, anchor=tk.CENTER)
+    Helpbtn.place(relx = .5, rely = .8, anchor=tk.CENTER)
 
 
     MainWin.bind('<Return>',lambda event:callback())
@@ -244,19 +213,26 @@ def OpenModelingResults():
                         fg='#ffffff')
     drop = tk.OptionMenu( ResultsWin , ModelSelected , *ModelOptions )
     CMLabel = tk.Label(ResultsWin, image ="")
+    
     DataTable = tk.Label(ResultsWin,image = "")
     DataTableImage = ImageTk.PhotoImage(file = "TimeTable.png")
     DataTable.configure(image = DataTableImage)
     DataTable.image = DataTableImage 
-
+    
+    ROC = tk.Label(ResultsWin,image = "")    
+    ROCImage = ImageTk.PhotoImage(file = "ROC-AUC.png")
+    ROC.configure(image = ROCImage)
+    ROC.image = ROCImage     
     SwapConfusionMatrix() #Gets the Initial Confusion Matrix 
 
   
     drop.pack()
-    CMLabel.pack()
+    #CMLabel.pack()
     GetCMButton.pack()
-    CMLabel.pack()
-    DataTable.pack()
+    CMLabel.place(relx=.3, rely = .3, anchor=tk.CENTER)
+    ROC.place(relx=.7, rely = .3, anchor=tk.CENTER)
+    DataTable.place(relx = .5, rely = .7, anchor = tk.CENTER)
+
 
     Backbtn.place(relx=0.5, rely=0.85, anchor=tk.CENTER)
 
@@ -270,7 +246,7 @@ def OpenModelingResults():
 #OpenModelingResults()
 
 
-# In[8]:
+# In[15]:
 
 
 def OpenImageDetails():
@@ -328,12 +304,8 @@ def OpenImageDetails():
                ActualLabel.config(text = "Actual Label: "+ str(fishfolder))
                CNNLabel.config(text = "CNN Prediction: " +str(pred))                
                
-               ResizeImage = Resize(np.array(Fish_Image),40,40)
-               ModifiedImage, counts = ClassifyPixelColor(ResizeImage)
-               PixelColorCounts.append(counts)
-               counts = pd.DataFrame(PixelColorCounts)
-               counts.columns = ["Reds", "Oranges", "Browns", "Tans", "Blues", "LightBlues", "Grays", "Whites", "Blacks"]
-               counts = counts[["Reds", "Oranges", "Browns", "Tans", "Grays","Whites"]]
+               ResizeImage = Resize(np.array(Fish_Image),50,50)
+               counts, ModifiedImage = ClassifyPixelColor(ResizeImage)
 
                KNNpredict = joblib.load('KNNModel.joblib').predict(counts)
                KNNLabel.config(text = "KNN Prediction: " +str(options[KNNpredict[0]]))   
@@ -345,8 +317,8 @@ def OpenImageDetails():
                RFLabel.config(text = "RF Prediction: " +str(options[RFpredict[0]])) 
                
                Fish_Image = Resize(np.array(Fish_Image), 225, 225)
-               ResizeImage = Resize(ResizeImage, 225,225)
-               ModifiedImage = Resize(ModifiedImage, 225,225)
+               ResizeImage = Resize(Resize(np.array(Fish_Image),50,50), 225,225)
+               ModifiedImage = Resize(ModifiedImage[0], 225,225)
 
                
                Fish_Image = np.array(Fish_Image).astype("uint8")
@@ -432,10 +404,10 @@ def OpenImageDetails():
    ImageDetailsWin.mainloop()
 
 
-# In[9]:
+# In[16]:
 
 
-#OpenImageDetails()
+OpenImageDetails()
 
 
 # In[10]:
@@ -559,6 +531,30 @@ def OpenGuessingGame():
 
 
 # In[11]:
+
+
+def OpenUserGuide():
+    # Building the Window
+    root = tk.Tk()
+    root.title("Guessing Game") 
+    root.geometry(str(Width)+'x'+str(Height))  
+    textbox = "This is a test"
+    label = tk.Label(text = textbox)
+    BackButton = tk.Button(root, 
+                    text="Back", 
+                    command= lambda:CloseAndOpen(root,"Main Menu"),
+                    #font = myFont,
+                    width=15, 
+                    height=1, 
+                    bg='#0052cc', 
+                    fg='#ffffff')
+    label.pack()
+    BackButton.pack()
+    root.bind('<Return>',lambda event:callback())
+    root.mainloop()
+
+
+# In[12]:
 
 
 OpenMainMenu()
