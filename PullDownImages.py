@@ -1,19 +1,19 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[8]:
+# In[ ]:
 
 
 pip install kaggle
 
 
-# In[9]:
+# In[ ]:
 
 
 import os
 from kaggle.api.kaggle_api_extended import KaggleApi
+
 def DownloadDataset():
-    
     api = KaggleApi()
     print("Authenticating API")
     api.authenticate()
@@ -23,17 +23,11 @@ def DownloadDataset():
     print("Download Complete")
 
 
-# In[10]:
+# In[ ]:
 
 
 if os.path.exists(os.path.join(os.getcwd (),'archive.zip')):
     pass
 else:
     DownloadDataset()
-
-
-# In[ ]:
-
-
-
 
