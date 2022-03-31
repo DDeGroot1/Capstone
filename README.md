@@ -1,4 +1,6 @@
 # Capstone
+Export the contents of this repository and put them in your python working directory.
+
 
 ## Obtaining Dataset
 The first thing you will need to do is pull down the Kaggle Dataset. Run "PullDownImages.ipynb" in a Jupyter Notebook or "PullDownImages.py" in a different IDE.
