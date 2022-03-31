@@ -7,6 +7,10 @@ The first thing you will need to do is pull down the Kaggle Dataset. Run "PullDo
 This program will pull the Kaggle dataset down as a zip folder and place it in your Python working directory. The zip folder is called "archive".
 This should take about 5 minutes.
 
+If this fails you can download the dataset using the link below. Make sure to put it into your working directory and rename the downloaded zip file to "archive". Don't unzip the file.
+
+https://www.kaggle.com/datasets/crowww/a-large-scale-fish-dataset
+
 ## GUI
 The GUI program is an interactive program that allows the you see the results of the models, see a few of the steps in the data pre-processing phase, and play a classification guessing game against the convolutional neural network. Run "CapstoneUI.ipynb" in a Jupyter Notebook or "CapstoneUI.py" in a different IDE. After running the program in your Python IDE a seperate window will open with the UI.
 
