@@ -8,7 +8,7 @@ This program will pull the Kaggle dataset down as a zip folder and place it in y
 This should take about 5 minutes.
 
 ## GUI
-The GUI program is an interactive program that allows the you see the results of the models, see a few of the steps in the data pre-processing phase, and play a classification guessing game against the convolutional neural network. Run "CapstoneUI.ipynb" in a Jupyter Notebook or "CapstoneUI.py" in a different IDE.
+The GUI program is an interactive program that allows the you see the results of the models, see a few of the steps in the data pre-processing phase, and play a classification guessing game against the convolutional neural network. Run "CapstoneUI.ipynb" in a Jupyter Notebook or "CapstoneUI.py" in a different IDE. After running the program in your Python IDE a seperate window will open with the UI.
 
 Prerequisites:
   * Dataset is pulled down from Kaggle and is located in the working directory
