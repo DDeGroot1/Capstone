@@ -419,9 +419,9 @@ def OpenImageDetails():
     ProcessedText = tk.Label(ImageDetailsWin, text = "Turn Some Colors to Black")
     
     TextBox = tk.Text(ImageDetailsWin, wrap = tk.WORD)
-    textbox = """    This screen demonstrates how the images are prepared before training the models. The first image displays the original image. The image is then compressed into a 50 x 50 pixel image with a bit of random blur added. This removes the noise and small details within the image. At this point the images are ready for the CNN algorithm, but more work is needed for the KNN, SVM, and Random Forest algorithms.
-    The next step reduces the variance between each pixel color. Each pixel is classified as one of nine different colors based on what the color it is most alike. The nine colors are Red, Orange, Brown, Tan, Blue, LightBlue, Gray, White, and Black. The third image shows this transformation.
-    Next, the blue, lightblue, and gray pixels are turned into black. This removes most of the background noise and isolates the colors associated with the seafood from the black background. This is seen in the forth image.
+    textbox = """    This screen demonstrates how the images are prepared before training the models. The first image displays the original image. The image is then compressed into a 50 x 50-pixel image with a bit of random blur added. This removes the noise and small details within the image. At this point the images are ready for the CNN algorithm, but more work is needed for the KNN, SVM, and Random Forest algorithms.
+    The next step reduces the variance between each pixel color. Each pixel is classified as one of nine different colors based on what the color it is most alike. The nine colors are Red, Orange, Brown, Tan, Blue, Light-Blue, Gray, White, and Black. The third image shows this transformation.
+    Next, the blue, light-blue, and gray pixels are turned into black. This removes most of the background noise and isolates the colors associated with the seafood from the black background. This is seen in the fourth image.
     The final step counts the number of pixels of each color type of the image. The totals per image are the features in the KNN, SVM, and Random Forest models. The totals can be seen in the table to the right."""
    
     GetImage(1)
@@ -589,11 +589,11 @@ def OpenUserGuide():
     root.geometry(str(Width)+'x'+str(Height))  
     textbox = """    This app has three sections-model results, image details, and guessing game.
     
-    The model results section summarizes the results of the four different models used to predict the type of seafood in each image. The models are a convolutional nueral network (CNN), K-nearest neighbors (KNN), support vector machine (SVM), and random forest (RF). You are can see each model's test confusion matrix, an ROC-AUC plot, and a metrics summary table.
+    The model results section summarizes the results of the four different models used to predict the type of seafood in each image. The models are a convolutional neural network (CNN), K-nearest neighbors (KNN), support vector machine (SVM), and random forest (RF). You can see each model's test confusion matrix, an ROC-AUC plot, and a metrics summary table.
     
     The image detail section allows the user to see the steps an image goes through during the modeling process. The user can search an image and see different snapshots in the pre-processing phase along with model's predictions. The first pre-processing image changes the size and clarity of the image. The second preprocessing image classifies each pixel into one of nine pixel colors. From there some of the colors are reclassified as 'Black' so that the only colors remaining are fish colors. This isolates the fish from the background.
     
-    The guessing game section is a simple guessing game. An random image is selected and you need to guess what you think it is. You select the seafood type using the dropdown box and click the 'Guess' button. Text will appear letting you know if you were right and letting you know how the model would have guessed. To get a new image click the 'Get Image' button. """
+    The guessing game section is a simple guessing game. A random image is selected and you need to guess what you think it is. You select the seafood type using the dropdown box and click the 'Guess' button. Text will appear letting you know if you were right and letting you know how the model would have guessed. To get a new image click the 'Get Image' button. """
     label = tk.Text(root, wrap=tk.WORD)
     BackButton = tk.Button(root, 
                     text="Back", 
